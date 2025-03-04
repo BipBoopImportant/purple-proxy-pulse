@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Chrome, RotateCw, Code, Info, FileCode, Plus, Trash, Brain, ArrowRight } from "lucide-react";
@@ -25,21 +24,9 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-
-// This is a placeholder component for the node editor
-// In a real implementation, this would be a complex component with drag-and-drop functionality
-const NodeEditor = () => (
-  <div className="relative border border-purple-500/30 rounded-md p-4 h-[400px] flex items-center justify-center bg-black/20">
-    <div className="text-center space-y-4">
-      <Info className="mx-auto h-12 w-12 text-purple-500/50" />
-      <h3 className="text-lg font-medium">Node Editor Coming Soon</h3>
-      <p className="text-sm text-muted-foreground max-w-md mx-auto">
-        The visual node editor for building Selenium scripts without coding is under development.
-        In the meantime, you can use the Script Editor tab to write and manage your scripts.
-      </p>
-    </div>
-  </div>
-);
+import NodeEditor from "@/components/node-editor/NodeEditor";
+import { CustomNode } from "@/components/node-editor/NodeTypes";
+import { Edge } from "@xyflow/react";
 
 const SeleniumService = () => {
   const { toast } = useToast();
@@ -81,13 +68,11 @@ const SeleniumService = () => {
   
   // Fetch logs
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
     // Initial logs
     setLogs(getServiceLogs("selenium", 15));
     
     // Simulate new logs coming in
-    interval = setInterval(() => {
+    const interval = setInterval(() => {
       const newLog = getServiceLogs("selenium", 1)[0];
       setLogs(prev => [...prev.slice(-99), newLog]);
     }, 10000);
@@ -193,6 +178,100 @@ const SeleniumService = () => {
       title: "Script Loaded",
       description: `Loaded script: ${script.name}`,
     });
+  };
+  
+  const handleSaveScript = async (scriptName: string, scriptCode: string, nodes: CustomNode[], edges: Edge[]) => {
+    // Mock saving a script to the database
+    console.log("Saving script:", scriptName, nodes.length, "nodes");
+    
+    // Add a log for the save
+    const saveLog: LogEntry = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date(),
+      level: "info",
+      service: "Selenium",
+      message: `Script "${scriptName}" saved with ${nodes.length} nodes and ${edges.length} connections`,
+    };
+    setLogs(prev => [...prev, saveLog]);
+    
+    // Update the script state
+    setScript(scriptCode);
+    
+    // In a real implementation, this would save to Supabase
+    // For now, just show a success toast
+    toast({
+      title: "Script Saved",
+      description: `Script "${scriptName}" has been saved successfully.`,
+    });
+    
+    // Refetch scripts to update the list
+    await refetchScripts();
+    
+    return true;
+  };
+  
+  const handleRunNodeScript = async (scriptCode: string) => {
+    if (!url) {
+      toast({
+        title: "Error",
+        description: "Please enter a URL to test",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsRunningTest(true);
+    setTestResults(null);
+    
+    try {
+      // Add a log for the test start
+      const startLog: LogEntry = {
+        id: `log-${Date.now()}`,
+        timestamp: new Date(),
+        level: "info",
+        service: "Selenium",
+        message: `Starting visual node script test on: ${url}${forwardToAI ? " with AI analysis" : ""}`,
+      };
+      setLogs(prev => [...prev, startLog]);
+      
+      const options = {
+        takeScreenshots,
+        headless,
+        script: scriptCode,
+        forwardToAI,
+      };
+      
+      const result = await runSeleniumTest(url, options);
+      
+      // Add result logs
+      const resultLog: LogEntry = {
+        id: `log-${Date.now() + 1}`,
+        timestamp: new Date(),
+        level: result.success ? "success" : "error",
+        service: "Selenium",
+        message: result.message,
+      };
+      setLogs(prev => [...prev, resultLog]);
+      
+      // Update test results
+      setTestResults(result);
+      
+      toast({
+        title: result.success ? "Success" : "Error",
+        description: result.message,
+        variant: result.success ? "default" : "destructive",
+      });
+    } catch (error) {
+      console.error("Error running Selenium test:", error);
+      
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRunningTest(false);
+    }
   };
   
   const sampleScript = `// This is a sample Selenium script
@@ -552,7 +631,30 @@ console.log('Page title:', await driver.getTitle());`;
           </TabsContent>
           
           <TabsContent value="visual">
-            <NodeEditor />
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  <h3 className="text-sm font-medium">Visual Node Editor</h3>
+                  <p className="text-xs text-muted-foreground">Create Selenium scripts by connecting nodes</p>
+                </div>
+                <div>
+                  <div className="text-sm mb-1">Test URL:</div>
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder="https://example.com"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      className="bg-background/50 w-64 h-8"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <NodeEditor 
+              onScriptSave={handleSaveScript}
+              onScriptRun={handleRunNodeScript}
+            />
           </TabsContent>
         </Tabs>
       </Section>
