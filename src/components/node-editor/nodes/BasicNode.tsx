@@ -7,6 +7,7 @@ interface BasicNodeProps {
   data: {
     label?: string;
     type?: string;
+    onChange?: (id: string, data: any) => void;
   };
   id: string;
   type: string;

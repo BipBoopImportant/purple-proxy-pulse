@@ -14,6 +14,7 @@ export interface NodeData {
   elementType?: string;
   options?: string[];
   timeout?: number;
+  onChange?: (id: string, data: any) => void;
 }
 
 export interface Edge {
