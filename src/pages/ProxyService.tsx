@@ -12,6 +12,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { 
+  AreaChart, 
+  Area, 
+  CartesianGrid, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer 
+} from "recharts";
 
 const ProxyService = () => {
   const { toast } = useToast();
@@ -310,8 +319,5 @@ const ProxyService = () => {
     </div>
   );
 };
-
-// Define AreaChart component that was missing
-import { AreaChart, Area, CartesianGrid } from "recharts";
 
 export default ProxyService;
