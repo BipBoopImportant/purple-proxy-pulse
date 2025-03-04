@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ReactFlow,
@@ -46,7 +47,7 @@ const nodeTypes = {
 
 interface NodeEditorProps {
   initialScript?: string;
-  onScriptSave?: (scriptName: string, script: string, nodes: CustomNode[], edges: Edge[]) => void;
+  onScriptSave?: (scriptName: string, script: string, nodes: Node[], edges: Edge[]) => void;
   onScriptRun?: (script: string) => void;
 }
 
@@ -296,7 +297,7 @@ const chrome = require('selenium-webdriver/chrome');
       const script = generateScript();
       
       if (onScriptSave) {
-        await onScriptSave(scriptName, script, nodes as unknown as CustomNode[], edges);
+        await onScriptSave(scriptName, script, nodes, edges);
       }
       
       toast({
