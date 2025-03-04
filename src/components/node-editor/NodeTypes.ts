@@ -1,6 +1,5 @@
-
 // NodeTypes.ts - Defines the node types and interfaces for the editor
-import { Node, Edge, NodeProps, EdgeProps, NodeTypes as ReactFlowNodeTypes } from '@xyflow/react';
+import { Node, Edge, NodeProps, EdgeProps } from '@xyflow/react';
 
 export interface NodeData {
   [key: string]: unknown; // Add index signature to satisfy Record<string, unknown>

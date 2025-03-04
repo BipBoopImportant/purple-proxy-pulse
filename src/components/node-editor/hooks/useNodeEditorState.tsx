@@ -1,11 +1,14 @@
-import { useState, useCallback, useRef } from 'react';
+
+import { useState, useCallback } from 'react';
 import { 
   useNodesState, 
   useEdgesState, 
   addEdge, 
   Connection, 
   MarkerType,
-  useReactFlow
+  useReactFlow,
+  Node,
+  Edge
 } from '@xyflow/react';
 import { useToast } from "@/components/ui/use-toast";
 import { CustomNode, CustomEdge, NodeTypes } from '../NodeTypes';
@@ -18,8 +21,8 @@ interface UseNodeEditorStateProps {
 
 const useNodeEditorState = ({ onScriptSave, onScriptRun }: UseNodeEditorStateProps) => {
   const { toast } = useToast();
-  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<CustomEdge[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<CustomEdge>([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [scriptName, setScriptName] = useState('My Selenium Script');
   const [generatedCode, setGeneratedCode] = useState('');
