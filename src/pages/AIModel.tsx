@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Brain, RotateCw, Check, FileText } from "lucide-react";
+import { Brain, RotateCw, Check, FileText, MessageSquareText } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
 import Section from "@/components/ui/section";
@@ -14,10 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 const AIModel = () => {
   const { toast } = useToast();
   const [url, setUrl] = useState<string>("");
+  const [userPrompt, setUserPrompt] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
@@ -78,11 +80,11 @@ const AIModel = () => {
         timestamp: new Date(),
         level: "info",
         service: "AI Model",
-        message: `Starting analysis of: ${url}`,
+        message: `Starting analysis of: ${url}${userPrompt ? ` with prompt: "${userPrompt}"` : ''}`,
       };
       setLogs(prev => [...prev, startLog]);
       
-      const result = await analyzeWebpage(url);
+      const result = await analyzeWebpage(url, userPrompt);
       
       // Add result log
       const resultLog: LogEntry = {
@@ -195,6 +197,20 @@ const AIModel = () => {
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
                     className="bg-background/50"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="analysis-prompt" className="flex items-center gap-2">
+                    <MessageSquareText size={16} />
+                    Analysis Instructions (Optional)
+                  </Label>
+                  <Textarea
+                    id="analysis-prompt"
+                    placeholder="Specify what to look for, e.g., 'Focus on identifying input validation patterns' or 'Check for hidden fields'"
+                    value={userPrompt}
+                    onChange={(e) => setUserPrompt(e.target.value)}
+                    className="bg-background/50 min-h-[80px]"
                   />
                 </div>
                 

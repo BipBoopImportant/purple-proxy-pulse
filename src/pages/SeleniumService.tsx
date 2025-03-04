@@ -1,20 +1,45 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Chrome, RotateCw, Code, Info } from "lucide-react";
+import { Chrome, RotateCw, Code, Info, FileCode, Plus, Trash, Brain, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
 import Section from "@/components/ui/section";
 import StatCard from "@/components/ui/stat-card";
 import LogTerminal, { LogEntry } from "@/components/ui/log-terminal";
-import { getServiceStats, getChartData, getServiceLogs, runSeleniumTest } from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
+import { getServiceStats, getChartData, getServiceLogs, runSeleniumTest, getStoredScripts, SeleniumScript } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+
+// This is a placeholder component for the node editor
+// In a real implementation, this would be a complex component with drag-and-drop functionality
+const NodeEditor = () => (
+  <div className="relative border border-purple-500/30 rounded-md p-4 h-[400px] flex items-center justify-center bg-black/20">
+    <div className="text-center space-y-4">
+      <Info className="mx-auto h-12 w-12 text-purple-500/50" />
+      <h3 className="text-lg font-medium">Node Editor Coming Soon</h3>
+      <p className="text-sm text-muted-foreground max-w-md mx-auto">
+        The visual node editor for building Selenium scripts without coding is under development.
+        In the meantime, you can use the Script Editor tab to write and manage your scripts.
+      </p>
+    </div>
+  </div>
+);
 
 const SeleniumService = () => {
   const { toast } = useToast();
@@ -22,15 +47,23 @@ const SeleniumService = () => {
   const [script, setScript] = useState<string>("");
   const [takeScreenshots, setTakeScreenshots] = useState<boolean>(true);
   const [headless, setHeadless] = useState<boolean>(true);
+  const [forwardToAI, setForwardToAI] = useState<boolean>(true);
   const [isRunningTest, setIsRunningTest] = useState<boolean>(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [testResults, setTestResults] = useState<any>(null);
+  const [activeScript, setActiveScript] = useState<SeleniumScript | null>(null);
   
   // Fetch service stats
   const { data: stats } = useQuery({
     queryKey: ["serviceStats", "selenium"],
     queryFn: () => getServiceStats("selenium"),
     refetchInterval: 5000,
+  });
+  
+  // Fetch stored scripts
+  const { data: storedScripts, refetch: refetchScripts } = useQuery({
+    queryKey: ["storedScripts"],
+    queryFn: getStoredScripts,
   });
   
   // Generate chart data
@@ -82,7 +115,7 @@ const SeleniumService = () => {
         timestamp: new Date(),
         level: "info",
         service: "Selenium",
-        message: `Starting test on: ${url}`,
+        message: `Starting test on: ${url}${forwardToAI ? " with AI analysis" : ""}`,
       };
       setLogs(prev => [...prev, startLog]);
       
@@ -90,6 +123,7 @@ const SeleniumService = () => {
         takeScreenshots,
         headless,
         script: script || undefined,
+        forwardToAI,
       };
       
       const result = await runSeleniumTest(url, options);
@@ -109,6 +143,18 @@ const SeleniumService = () => {
         setLogs(prev => [...prev, ...result.logs]);
       }
       
+      // If AI analysis was performed
+      if (result.aiAnalysis) {
+        const aiLog: LogEntry = {
+          id: `log-${Date.now() + 2}`,
+          timestamp: new Date(),
+          level: "info",
+          service: "Selenium",
+          message: `AI analysis completed for ${url}: Detected ${result.aiAnalysis.detectedType}`,
+        };
+        setLogs(prev => [...prev, aiLog]);
+      }
+      
       setTestResults(result);
       
       toast({
@@ -121,7 +167,7 @@ const SeleniumService = () => {
       
       // Add error log
       const errorLog: LogEntry = {
-        id: `log-${Date.now() + 2}`,
+        id: `log-${Date.now() + 3}`,
         timestamp: new Date(),
         level: "error",
         service: "Selenium",
@@ -137,6 +183,16 @@ const SeleniumService = () => {
     } finally {
       setIsRunningTest(false);
     }
+  };
+  
+  const handleLoadScript = (script: SeleniumScript) => {
+    setActiveScript(script);
+    setScript(script.code);
+    
+    toast({
+      title: "Script Loaded",
+      description: `Loaded script: ${script.name}`,
+    });
   };
   
   const sampleScript = `// This is a sample Selenium script
@@ -248,6 +304,17 @@ console.log('Page title:', await driver.getTitle());`;
                     />
                     <Label htmlFor="headless">Headless Mode</Label>
                   </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="forward-to-ai" 
+                      checked={forwardToAI} 
+                      onCheckedChange={(checked) => setForwardToAI(!!checked)} 
+                    />
+                    <Label htmlFor="forward-to-ai" className="flex items-center gap-1">
+                      Forward to AI <Brain size={14} className="text-purple-400" />
+                    </Label>
+                  </div>
                 </div>
                 
                 <Button 
@@ -285,15 +352,23 @@ console.log('Page title:', await driver.getTitle());`;
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <Label htmlFor="script">Custom Selenium Script</Label>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-xs"
-                      onClick={() => setScript(sampleScript)}
-                    >
-                      <Code size={12} className="mr-1" />
-                      Load Sample
-                    </Button>
+                    <div className="space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs"
+                        onClick={() => setScript(sampleScript)}
+                      >
+                        <Code size={12} className="mr-1" />
+                        Load Sample
+                      </Button>
+                      
+                      {activeScript && (
+                        <Badge variant="outline" className="ml-2">
+                          Active: {activeScript.name}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <Textarea
                     id="script"
@@ -322,6 +397,17 @@ console.log('Page title:', await driver.getTitle());`;
                     />
                     <Label htmlFor="headless-script">Headless Mode</Label>
                   </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="forward-to-ai-script" 
+                      checked={forwardToAI} 
+                      onCheckedChange={(checked) => setForwardToAI(!!checked)} 
+                    />
+                    <Label htmlFor="forward-to-ai-script" className="flex items-center gap-1">
+                      Forward to AI <Brain size={14} className="text-purple-400" />
+                    </Label>
+                  </div>
                 </div>
                 
                 <Button 
@@ -348,11 +434,134 @@ console.log('Page title:', await driver.getTitle());`;
         </Card>
       </Section>
 
+      <Section title="Script Management" description="Manage and create Selenium scripts">
+        <Tabs defaultValue="library" className="w-full">
+          <TabsList className="grid grid-cols-3 mb-4">
+            <TabsTrigger value="library">Script Library</TabsTrigger>
+            <TabsTrigger value="editor">Script Editor</TabsTrigger>
+            <TabsTrigger value="visual">Visual Node Editor</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="library" className="space-y-4">
+            <Card className="glass-morphism border border-purple-900/30">
+              <CardContent className="p-6">
+                <ScrollArea className="h-[400px] pr-4">
+                  <div className="space-y-4">
+                    {storedScripts?.map((script) => (
+                      <Card key={script.id} className="border border-purple-900/20 bg-black/20">
+                        <CardHeader className="pb-2">
+                          <div className="flex justify-between items-start">
+                            <CardTitle className="text-base">{script.name}</CardTitle>
+                            <div className="flex gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleLoadScript(script)}
+                                className="h-7 px-2"
+                              >
+                                <FileCode size={14} />
+                                <span className="ml-1">Load</span>
+                              </Button>
+                            </div>
+                          </div>
+                          <CardDescription>{script.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {script.tags.map((tag) => (
+                              <Badge key={tag} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Last updated: {new Date(script.updatedAt).toLocaleDateString()}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    
+                    {(!storedScripts || storedScripts.length === 0) && (
+                      <div className="text-center py-12">
+                        <Info className="mx-auto h-8 w-8 text-muted-foreground" />
+                        <p className="mt-2 text-muted-foreground">No scripts found</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="editor" className="space-y-4">
+            <Card className="glass-morphism border border-purple-900/30">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="script-name">Script Name</Label>
+                      <Input
+                        id="script-name"
+                        placeholder="My Selenium Script"
+                        className="bg-background/50"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="script-tags">Tags (comma separated)</Label>
+                      <Input
+                        id="script-tags"
+                        placeholder="login, form, authentication"
+                        className="bg-background/50"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="script-description">Description</Label>
+                    <Textarea
+                      id="script-description"
+                      placeholder="Describe what this script does"
+                      className="bg-background/50 h-[60px]"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="script-code">Script Code</Label>
+                    <Textarea
+                      id="script-code"
+                      placeholder="// Enter your Selenium script here"
+                      className="font-mono text-sm h-[200px] bg-background/50"
+                      value={script}
+                      onChange={(e) => setScript(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="flex justify-end space-x-2">
+                    <Button variant="outline">
+                      <Trash size={16} className="mr-2" />
+                      Clear
+                    </Button>
+                    <Button>
+                      <Plus size={16} className="mr-2" />
+                      Save Script
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="visual">
+            <NodeEditor />
+          </TabsContent>
+        </Tabs>
+      </Section>
+
       {testResults && (
         <Section title="Test Results" description="Results from the last Selenium test run">
           <Card className="glass-morphism border border-purple-900/30">
             <CardContent className="p-6">
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="flex items-center gap-2">
                   {testResults.success ? (
                     <div className="flex items-center text-green-500 gap-1">
@@ -382,6 +591,70 @@ console.log('Page title:', await driver.getTitle());`;
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+                
+                {testResults.aiAnalysis && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-medium">AI Analysis:</h3>
+                      <Badge className="bg-purple-600">
+                        <Brain size={12} className="mr-1" />
+                        AI Enhanced
+                      </Badge>
+                    </div>
+                    
+                    <Card className="bg-black/30 border border-purple-500/20">
+                      <CardContent className="p-4">
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <h4 className="text-xs font-medium text-muted-foreground mb-1">Page Title</h4>
+                              <p className="text-sm">{testResults.aiAnalysis.pageTitle}</p>
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-medium text-muted-foreground mb-1">Detected Type</h4>
+                              <p className="text-sm">{testResults.aiAnalysis.detectedType}</p>
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground mb-1">Security Features</h4>
+                            <div className="flex flex-wrap gap-1">
+                              {testResults.aiAnalysis.securityFeatures.map((feature: string, index: number) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {feature}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground mb-1">Suggested Actions</h4>
+                            <ul className="text-sm space-y-1 list-disc list-inside">
+                              {testResults.aiAnalysis.suggestedActions.map((action: string, index: number) => (
+                                <li key={index}>{action}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          
+                          <div>
+                            <h4 className="text-xs font-medium text-muted-foreground mb-1">Detected Elements</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+                              <div>
+                                <span className="text-xs text-purple-400">Inputs:</span> {testResults.aiAnalysis.detectedElements.inputs.join(", ")}
+                              </div>
+                              <div>
+                                <span className="text-xs text-purple-400">Buttons:</span> {testResults.aiAnalysis.detectedElements.buttons.join(", ")}
+                              </div>
+                              <div>
+                                <span className="text-xs text-purple-400">Links:</span> {testResults.aiAnalysis.detectedElements.links.join(", ")}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
               </div>
