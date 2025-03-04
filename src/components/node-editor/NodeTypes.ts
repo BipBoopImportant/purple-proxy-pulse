@@ -1,5 +1,6 @@
 
 // NodeTypes.ts - Defines the node types and interfaces for the editor
+import { Node as ReactFlowNode, Edge as ReactFlowEdge } from '@xyflow/react';
 
 export interface NodeData {
   label?: string;
@@ -17,30 +18,8 @@ export interface NodeData {
   onChange?: (id: string, data: any) => void;
 }
 
-export interface Edge {
-  id: string;
-  source: string;
-  target: string;
-  sourceHandle?: string | null;
-  targetHandle?: string | null;
-  type?: string;
-  animated?: boolean;
-  style?: Record<string, any>;
-  markerEnd?: any;
-  label?: string;
-}
-
-export interface CustomNode {
-  id: string;
-  type: string;
-  position: {
-    x: number;
-    y: number;
-  };
-  data: NodeData;
-  sourcePosition?: string;
-  targetPosition?: string;
-}
+export type CustomNode = ReactFlowNode<NodeData>;
+export type Edge = ReactFlowEdge;
 
 export enum NodeTypes {
   START = 'start',

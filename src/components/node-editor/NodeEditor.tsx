@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ReactFlow,
@@ -17,16 +16,15 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import NodePanel from './NodePanel';
 import NodeControls from './NodeControls';
-import { NodeTypes, CustomNode, generateNodeCode, NODE_COLORS } from './NodeTypes';
+import { NodeTypes, NODE_COLORS, CustomNode } from './NodeTypes';
 import BasicNode from './nodes/BasicNode';
 import NavigateNode from './nodes/NavigateNode';
 import ClickNode from './nodes/ClickNode';
 import TypeNode from './nodes/TypeNode';
 import WaitNode from './nodes/WaitNode';
 import CodeNode from './nodes/CodeNode';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import CodePreviewDialog from './components/CodePreviewDialog';
+import { generateScript, generateExecutableScript } from './utils/codeGenerator';
 
 // Import the styles
 import '@xyflow/react/dist/style.css';
@@ -59,7 +57,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   const { toast } = useToast();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [scriptName, setScriptName] = useState('My Selenium Script');
   const [generatedCode, setGeneratedCode] = useState('');
@@ -157,107 +155,6 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
     );
   }, [setNodes]);
 
-  // Generate Selenium script from nodes
-  const generateScript = useCallback(() => {
-    // Sort nodes based on connections/edges
-    const sortedNodes: Node[] = [];
-    const visited = new Set<string>();
-    const nodeMap = new Map<string, Node>();
-    
-    // Create a map of node id to node
-    nodes.forEach(node => {
-      nodeMap.set(node.id, node);
-    });
-    
-    // Start with the start node
-    const startNode = nodes.find(node => node.type === NodeTypes.START);
-    if (!startNode) {
-      toast({
-        title: "Error",
-        description: "No start node found in the flow",
-        variant: "destructive"
-      });
-      return '';
-    }
-    
-    // Use DFS to traverse the graph
-    const dfs = (nodeId: string) => {
-      if (visited.has(nodeId)) return;
-      visited.add(nodeId);
-      
-      const node = nodeMap.get(nodeId);
-      if (node) {
-        sortedNodes.push(node);
-        
-        // Find outgoing edges from this node
-        const outgoingEdges = edges.filter(edge => edge.source === nodeId);
-        outgoingEdges.forEach(edge => {
-          if (edge.target) {
-            dfs(edge.target);
-          }
-        });
-      }
-    };
-    
-    // Start DFS from the start node
-    dfs(startNode.id);
-    
-    // Generate code from sorted nodes
-    let script = '// Generated Selenium script\n\n';
-    
-    // Add setup code
-    script += `// Setup
-const { Builder, By, Key, until, Select } = require('selenium-webdriver');
-const chrome = require('selenium-webdriver/chrome');
-
-(async function runTest() {
-  let driver;
-  
-  try {
-    // Set up Chrome options
-    const options = new chrome.Options();
-    ${!isRunning ? '// ' : ''}options.addArguments('--headless');
-    
-    // Build the driver
-    driver = await new Builder()
-      .forBrowser('chrome')
-      .setChromeOptions(options)
-      .build();
-      
-    // Set implicit wait
-    await driver.manage().setTimeouts({ implicit: 10000 });
-    
-    // Test script begins
-`;
-    
-    // Add code for each node
-    sortedNodes.forEach(node => {
-      if (node.type && node.type in NodeTypes) {
-        script += '    ' + generateNodeCode(node as CustomNode, node.type as NodeTypes).split('\n').join('\n    ');
-      }
-    });
-    
-    // Add cleanup code
-    script += `
-    // Test script ends
-    
-    console.log('Test completed successfully');
-    return { success: true };
-  } catch (error) {
-    console.error('Test failed:', error);
-    return { success: false, error: error.message };
-  } finally {
-    // Cleanup
-    if (driver) {
-      await driver.quit();
-    }
-  }
-})();
-`;
-    
-    return script;
-  }, [nodes, edges]);
-
   const handleClearFlow = () => {
     // Keep only the start node
     const startNode: Node = {
@@ -277,7 +174,7 @@ const chrome = require('selenium-webdriver/chrome');
   };
 
   const handleGenerateCode = () => {
-    const script = generateScript();
+    const script = generateScript(nodes, edges);
     setGeneratedCode(script);
     setShowCodeDialog(true);
   };
@@ -294,7 +191,7 @@ const chrome = require('selenium-webdriver/chrome');
     
     setIsSaving(true);
     try {
-      const script = generateScript();
+      const script = generateScript(nodes, edges);
       
       if (onScriptSave) {
         await onScriptSave(scriptName, script, nodes, edges);
@@ -319,7 +216,7 @@ const chrome = require('selenium-webdriver/chrome');
   const handleRunScript = async () => {
     setIsRunning(true);
     try {
-      const script = generateScript();
+      const script = generateExecutableScript(nodes, edges, false);
       
       if (onScriptRun) {
         await onScriptRun(script);
@@ -413,14 +310,6 @@ const chrome = require('selenium-webdriver/chrome');
     input.click();
   };
 
-  const copyGeneratedCode = () => {
-    navigator.clipboard.writeText(generatedCode);
-    toast({
-      title: "Code Copied",
-      description: "The generated code has been copied to clipboard",
-    });
-  };
-
   return (
     <div className="h-[600px] relative border border-purple-900/30 rounded-md overflow-hidden">
       <div ref={reactFlowWrapper} className="h-full">
@@ -470,35 +359,11 @@ const chrome = require('selenium-webdriver/chrome');
         </ReactFlow>
       </div>
       
-      <Dialog open={showCodeDialog} onOpenChange={setShowCodeDialog}>
-        <DialogContent className="sm:max-w-[800px] bg-background border border-purple-900/30">
-          <DialogHeader>
-            <DialogTitle>Generated Selenium Script</DialogTitle>
-            <DialogDescription>
-              This is the code generated from your visual flow. You can copy it or use it directly.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="relative">
-            <Textarea 
-              className="h-[400px] font-mono text-sm bg-black/20 border-purple-900/30"
-              value={generatedCode}
-              readOnly
-            />
-            <Button 
-              className="absolute top-2 right-2"
-              size="sm"
-              onClick={copyGeneratedCode}
-            >
-              Copy Code
-            </Button>
-          </div>
-          
-          <div className="flex justify-end">
-            <Button onClick={() => setShowCodeDialog(false)}>Close</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CodePreviewDialog
+        open={showCodeDialog}
+        onOpenChange={setShowCodeDialog}
+        generatedCode={generatedCode}
+      />
     </div>
   );
 };

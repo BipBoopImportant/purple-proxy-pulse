@@ -25,8 +25,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import NodeEditor from "@/components/node-editor/NodeEditor";
-import { CustomNode } from "@/components/node-editor/NodeTypes";
-import { Edge } from "@xyflow/react";
+import { Edge, Node } from '@xyflow/react';
 
 const SeleniumService = () => {
   const { toast } = useToast();
@@ -40,20 +39,17 @@ const SeleniumService = () => {
   const [testResults, setTestResults] = useState<any>(null);
   const [activeScript, setActiveScript] = useState<SeleniumScript | null>(null);
   
-  // Fetch service stats
   const { data: stats } = useQuery({
     queryKey: ["serviceStats", "selenium"],
     queryFn: () => getServiceStats("selenium"),
     refetchInterval: 5000,
   });
   
-  // Fetch stored scripts
   const { data: storedScripts, refetch: refetchScripts } = useQuery({
     queryKey: ["storedScripts"],
     queryFn: getStoredScripts,
   });
   
-  // Generate chart data
   const cpuData = useQuery({
     queryKey: ["chartData", "selenium", "cpu"],
     queryFn: () => getChartData(24, 100, 20),
@@ -66,12 +62,9 @@ const SeleniumService = () => {
     refetchInterval: 60000,
   });
   
-  // Fetch logs
   useEffect(() => {
-    // Initial logs
     setLogs(getServiceLogs("selenium", 15));
     
-    // Simulate new logs coming in
     const interval = setInterval(() => {
       const newLog = getServiceLogs("selenium", 1)[0];
       setLogs(prev => [...prev.slice(-99), newLog]);
@@ -94,7 +87,6 @@ const SeleniumService = () => {
     setTestResults(null);
     
     try {
-      // Add a log for the test start
       const startLog: LogEntry = {
         id: `log-${Date.now()}`,
         timestamp: new Date(),
@@ -113,7 +105,6 @@ const SeleniumService = () => {
       
       const result = await runSeleniumTest(url, options);
       
-      // Add result logs
       const resultLog: LogEntry = {
         id: `log-${Date.now() + 1}`,
         timestamp: new Date(),
@@ -123,12 +114,10 @@ const SeleniumService = () => {
       };
       setLogs(prev => [...prev, resultLog]);
       
-      // Add any logs from the result
       if (result.logs) {
         setLogs(prev => [...prev, ...result.logs]);
       }
       
-      // If AI analysis was performed
       if (result.aiAnalysis) {
         const aiLog: LogEntry = {
           id: `log-${Date.now() + 2}`,
@@ -150,7 +139,6 @@ const SeleniumService = () => {
     } catch (error) {
       console.error("Error running Selenium test:", error);
       
-      // Add error log
       const errorLog: LogEntry = {
         id: `log-${Date.now() + 3}`,
         timestamp: new Date(),
@@ -180,11 +168,9 @@ const SeleniumService = () => {
     });
   };
   
-  const handleSaveScript = async (scriptName: string, scriptCode: string, nodes: CustomNode[], edges: Edge[]) => {
-    // Mock saving a script to the database
+  const handleSaveScript = async (scriptName: string, scriptCode: string, nodes: Node[], edges: Edge[]) => {
     console.log("Saving script:", scriptName, nodes.length, "nodes");
     
-    // Add a log for the save
     const saveLog: LogEntry = {
       id: `log-${Date.now()}`,
       timestamp: new Date(),
@@ -194,17 +180,13 @@ const SeleniumService = () => {
     };
     setLogs(prev => [...prev, saveLog]);
     
-    // Update the script state
     setScript(scriptCode);
     
-    // In a real implementation, this would save to Supabase
-    // For now, just show a success toast
     toast({
       title: "Script Saved",
       description: `Script "${scriptName}" has been saved successfully.`,
     });
     
-    // Refetch scripts to update the list
     await refetchScripts();
     
     return true;
@@ -224,7 +206,6 @@ const SeleniumService = () => {
     setTestResults(null);
     
     try {
-      // Add a log for the test start
       const startLog: LogEntry = {
         id: `log-${Date.now()}`,
         timestamp: new Date(),
@@ -243,7 +224,6 @@ const SeleniumService = () => {
       
       const result = await runSeleniumTest(url, options);
       
-      // Add result logs
       const resultLog: LogEntry = {
         id: `log-${Date.now() + 1}`,
         timestamp: new Date(),
@@ -253,7 +233,6 @@ const SeleniumService = () => {
       };
       setLogs(prev => [...prev, resultLog]);
       
-      // Update test results
       setTestResults(result);
       
       toast({
