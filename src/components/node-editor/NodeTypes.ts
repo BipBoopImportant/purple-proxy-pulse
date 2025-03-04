@@ -1,6 +1,6 @@
 
 // NodeTypes.ts - Defines the node types and interfaces for the editor
-import { Node as ReactFlowNode, Edge as ReactFlowEdge } from '@xyflow/react';
+import { Node, Edge, NodeProps, EdgeProps, NodeTypes as ReactFlowNodeTypes } from '@xyflow/react';
 
 export interface NodeData {
   [key: string]: unknown; // Add index signature to satisfy Record<string, unknown>
@@ -19,9 +19,9 @@ export interface NodeData {
   onChange?: (id: string, data: any) => void;
 }
 
-// Define CustomNode as a type alias for ReactFlowNode with NodeData
-export type CustomNode = ReactFlowNode<NodeData>;
-export type CustomEdge = ReactFlowEdge;
+// Define CustomNode and CustomEdge using the proper Node and Edge types from ReactFlow
+export type CustomNode = Node<NodeData>;
+export type CustomEdge = Edge;
 
 export enum NodeTypes {
   START = 'start',

@@ -1,22 +1,9 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  ReactFlow,
-  MiniMap,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  Connection,
-  Edge,
-  Node,
-  Panel,
-  MarkerType
-} from '@xyflow/react';
-import { useToast } from "@/components/ui/use-toast";
+
+import React, { useRef, useEffect } from 'react';
+import { Panel } from '@xyflow/react';
+
 import NodePanel from './NodePanel';
 import NodeControls from './NodeControls';
-import { NodeTypes, NODE_COLORS, CustomNode, CustomEdge } from './NodeTypes';
 import BasicNode from './nodes/BasicNode';
 import NavigateNode from './nodes/NavigateNode';
 import ClickNode from './nodes/ClickNode';
@@ -24,7 +11,9 @@ import TypeNode from './nodes/TypeNode';
 import WaitNode from './nodes/WaitNode';
 import CodeNode from './nodes/CodeNode';
 import CodePreviewDialog from './components/CodePreviewDialog';
-import { generateScript, generateExecutableScript } from './utils/codeGenerator';
+import { NodeTypes, CustomNode, CustomEdge } from './NodeTypes';
+import FlowCanvas from './components/FlowCanvas';
+import useNodeEditorState from './hooks/useNodeEditorState';
 
 // Import the styles
 import '@xyflow/react/dist/style.css';
@@ -54,30 +43,33 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   onScriptSave,
   onScriptRun
 }) => {
-  const { toast } = useToast();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<CustomEdge[]>([]);
-  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
-  const [scriptName, setScriptName] = useState('My Selenium Script');
-  const [generatedCode, setGeneratedCode] = useState('');
-  const [showCodeDialog, setShowCodeDialog] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
-
-  useEffect(() => {
-    // Initialize with a start node
-    if (nodes.length === 0) {
-      const startNode: CustomNode = {
-        id: 'start-node',
-        type: NodeTypes.START,
-        position: { x: 250, y: 50 },
-        data: { label: 'Start', type: NodeTypes.START }
-      };
-      
-      setNodes([startNode]);
-    }
-  }, []);
+  
+  const {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    onDragOver,
+    onDrop,
+    reactFlowInstance,
+    setReactFlowInstance,
+    scriptName,
+    setScriptName,
+    generatedCode,
+    showCodeDialog,
+    setShowCodeDialog,
+    isSaving,
+    isRunning,
+    initializeEditor,
+    handleClearFlow,
+    handleGenerateCode,
+    handleSaveScript,
+    handleRunScript,
+    handleExportFlow,
+    handleImportFlow,
+  } = useNodeEditorState({ onScriptSave, onScriptRun });
 
   // Handle node drag from panel
   const onDragStart = (event: React.DragEvent<HTMLDivElement>, nodeType: NodeTypes) => {
@@ -85,235 +77,14 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const onDrop = useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-
-      if (!reactFlowWrapper.current || !reactFlowInstance) return;
-
-      const nodeType = event.dataTransfer.getData('application/reactflow') as NodeTypes;
-      if (!nodeType) return;
-
-      const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY
-      });
-      
-      const newNode: CustomNode = {
-        id: `${nodeType}-${Date.now()}`,
-        type: nodeType,
-        position,
-        data: { 
-          label: nodeType.charAt(0).toUpperCase() + nodeType.slice(1),
-          type: nodeType,
-          onChange: onNodeDataChange
-        }
-      };
-      
-      setNodes((nds) => [...nds, newNode]);
-    },
-    [reactFlowInstance]
-  );
-
-  const onConnect = useCallback(
-    (params: Connection) => {
-      const newEdge = {
-        ...params,
-        id: `edge-${params.source}-${params.target}`,
-        animated: true,
-        style: { stroke: '#9F7AEA' },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: '#9F7AEA',
-        }
-      };
-      setEdges((eds) => addEdge(newEdge, eds));
-    },
-    [setEdges]
-  );
-
-  const onNodeDataChange = useCallback((nodeId: string, newData: any) => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === nodeId) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              ...newData,
-              onChange: onNodeDataChange
-            }
-          };
-        }
-        return node;
-      })
-    );
-  }, [setNodes]);
-
-  const handleClearFlow = () => {
-    // Keep only the start node
-    const startNode: CustomNode = {
-      id: 'start-node',
-      type: NodeTypes.START,
-      position: { x: 250, y: 50 },
-      data: { label: 'Start', type: NodeTypes.START }
-    };
-    
-    setNodes([startNode]);
-    setEdges([]);
-    
-    toast({
-      title: "Flow Cleared",
-      description: "The node editor has been reset",
-    });
-  };
-
-  const handleGenerateCode = () => {
-    const script = generateScript(nodes as CustomNode[], edges as CustomEdge[]);
-    setGeneratedCode(script);
-    setShowCodeDialog(true);
-  };
-
-  const handleSaveScript = async () => {
-    if (!scriptName) {
-      toast({
-        title: "Error",
-        description: "Please enter a script name",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setIsSaving(true);
-    try {
-      const script = generateScript(nodes as CustomNode[], edges as CustomEdge[]);
-      
-      if (onScriptSave) {
-        await onScriptSave(scriptName, script, nodes as CustomNode[], edges as CustomEdge[]);
-      }
-      
-      toast({
-        title: "Success",
-        description: `Script "${scriptName}" saved successfully`,
-      });
-    } catch (error) {
-      console.error("Error saving script:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save script",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleRunScript = async () => {
-    setIsRunning(true);
-    try {
-      const script = generateExecutableScript(nodes as CustomNode[], edges as CustomEdge[], false);
-      
-      if (onScriptRun) {
-        await onScriptRun(script);
-      }
-      
-      toast({
-        title: "Success",
-        description: "Script executed successfully",
-      });
-    } catch (error) {
-      console.error("Error running script:", error);
-      toast({
-        title: "Error",
-        description: "Failed to run script",
-        variant: "destructive"
-      });
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  const handleExportFlow = () => {
-    const flow = { nodes, edges };
-    const json = JSON.stringify(flow, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${scriptName.replace(/\s+/g, '-').toLowerCase()}.json`;
-    link.click();
-    
-    URL.revokeObjectURL(url);
-    
-    toast({
-      title: "Flow Exported",
-      description: "The node configuration has been exported as JSON",
-    });
-  };
-
-  const handleImportFlow = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    
-    input.onchange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      if (!target.files || target.files.length === 0) return;
-      
-      const file = target.files[0];
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        try {
-          const result = event.target?.result as string;
-          const flow = JSON.parse(result);
-          
-          if (flow.nodes && flow.edges) {
-            // Make sure data.onChange is properly set for all nodes
-            const nodesWithOnChange = flow.nodes.map((node: CustomNode) => ({
-              ...node,
-              data: {
-                ...node.data,
-                onChange: onNodeDataChange
-              }
-            }));
-            
-            setNodes(nodesWithOnChange);
-            setEdges(flow.edges);
-            
-            toast({
-              title: "Flow Imported",
-              description: "The node configuration has been imported successfully",
-            });
-          } else {
-            throw new Error("Invalid flow JSON structure");
-          }
-        } catch (error) {
-          console.error("Error importing flow:", error);
-          toast({
-            title: "Error",
-            description: "Failed to import flow: Invalid JSON format",
-            variant: "destructive"
-          });
-        }
-      };
-      
-      reader.readAsText(file);
-    };
-    
-    input.click();
-  };
+  useEffect(() => {
+    initializeEditor();
+  }, [initializeEditor]);
 
   return (
     <div className="h-[600px] relative border border-purple-900/30 rounded-md overflow-hidden">
       <div ref={reactFlowWrapper} className="h-full">
-        <ReactFlow
+        <FlowCanvas
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
@@ -323,21 +94,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
           onDrop={onDrop}
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}
-          fitView
-          attributionPosition="bottom-right"
-          className="bg-black/10"
         >
-          <Controls />
-          <MiniMap 
-            nodeColor={(node) => {
-              const nodeData = node.data as { type?: NodeTypes };
-              return nodeData.type ? NODE_COLORS[nodeData.type] : '#555';
-            }}
-            maskColor="rgba(0, 0, 0, 0.1)"
-            className="bg-black/30 border border-purple-900/30 rounded-md"
-          />
-          <Background color="#aaa" gap={16} />
-          
           <Panel position="top-left" className="w-64 ml-2 mt-2">
             <NodePanel onDragStart={onDragStart} />
           </Panel>
@@ -356,7 +113,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
               isRunning={isRunning}
             />
           </Panel>
-        </ReactFlow>
+        </FlowCanvas>
       </div>
       
       <CodePreviewDialog

@@ -1,14 +1,9 @@
 
 import React, { memo } from 'react';
-import { Handle, Position } from '@xyflow/react';
-import { NodeTypes, NODE_COLORS } from '../NodeTypes';
+import { Handle, Position, NodeProps } from '@xyflow/react';
+import { NodeTypes, NODE_COLORS, NodeData } from '../NodeTypes';
 
-interface BasicNodeProps {
-  data: {
-    label?: string;
-    type?: string;
-    onChange?: (id: string, data: any) => void;
-  };
+interface BasicNodeProps extends NodeProps<NodeData> {
   id: string;
   type: string;
 }
