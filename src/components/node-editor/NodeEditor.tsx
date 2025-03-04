@@ -16,7 +16,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import NodePanel from './NodePanel';
 import NodeControls from './NodeControls';
-import { NodeTypes, CustomNode, generateNodeCode } from './NodeTypes';
+import { NodeTypes, CustomNode, generateNodeCode, NODE_COLORS } from './NodeTypes';
 import BasicNode from './nodes/BasicNode';
 import NavigateNode from './nodes/NavigateNode';
 import ClickNode from './nodes/ClickNode';
@@ -57,7 +57,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
 }) => {
   const { toast } = useToast();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [scriptName, setScriptName] = useState('My Selenium Script');
@@ -69,7 +69,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   useEffect(() => {
     // Initialize with a start node
     if (nodes.length === 0) {
-      const startNode: CustomNode = {
+      const startNode: Node = {
         id: 'start-node',
         type: NodeTypes.START,
         position: { x: 250, y: 50 },
@@ -105,7 +105,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
         y: event.clientY
       });
       
-      const newNode: CustomNode = {
+      const newNode: Node = {
         id: `${nodeType}-${Date.now()}`,
         type: nodeType,
         position,
@@ -116,7 +116,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
         }
       };
       
-      setNodes((nds) => nds.concat(newNode));
+      setNodes((nds) => [...nds, newNode]);
     },
     [reactFlowInstance]
   );
@@ -159,13 +159,13 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   // Generate Selenium script from nodes
   const generateScript = useCallback(() => {
     // Sort nodes based on connections/edges
-    const sortedNodes: CustomNode[] = [];
+    const sortedNodes: Node[] = [];
     const visited = new Set<string>();
-    const nodeMap = new Map<string, CustomNode>();
+    const nodeMap = new Map<string, Node>();
     
     // Create a map of node id to node
     nodes.forEach(node => {
-      nodeMap.set(node.id, node as CustomNode);
+      nodeMap.set(node.id, node);
     });
     
     // Start with the start node
@@ -231,8 +231,8 @@ const chrome = require('selenium-webdriver/chrome');
     
     // Add code for each node
     sortedNodes.forEach(node => {
-      if (node.type in NodeTypes) {
-        script += '    ' + generateNodeCode(node, node.type as NodeTypes).split('\n').join('\n    ');
+      if (node.type && node.type in NodeTypes) {
+        script += '    ' + generateNodeCode(node as CustomNode, node.type as NodeTypes).split('\n').join('\n    ');
       }
     });
     
@@ -259,7 +259,7 @@ const chrome = require('selenium-webdriver/chrome');
 
   const handleClearFlow = () => {
     // Keep only the start node
-    const startNode: CustomNode = {
+    const startNode: Node = {
       id: 'start-node',
       type: NodeTypes.START,
       position: { x: 250, y: 50 },
@@ -296,7 +296,7 @@ const chrome = require('selenium-webdriver/chrome');
       const script = generateScript();
       
       if (onScriptSave) {
-        await onScriptSave(scriptName, script, nodes, edges);
+        await onScriptSave(scriptName, script, nodes as unknown as CustomNode[], edges);
       }
       
       toast({
@@ -378,7 +378,7 @@ const chrome = require('selenium-webdriver/chrome');
           
           if (flow.nodes && flow.edges) {
             // Make sure data.onChange is properly set for all nodes
-            const nodesWithOnChange = flow.nodes.map((node: CustomNode) => ({
+            const nodesWithOnChange = flow.nodes.map((node: Node) => ({
               ...node,
               data: {
                 ...node.data,
