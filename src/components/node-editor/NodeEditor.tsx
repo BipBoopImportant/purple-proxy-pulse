@@ -16,7 +16,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import NodePanel from './NodePanel';
 import NodeControls from './NodeControls';
-import { NodeTypes, NODE_COLORS, CustomNode } from './NodeTypes';
+import { NodeTypes, NODE_COLORS, CustomNode, CustomEdge } from './NodeTypes';
 import BasicNode from './nodes/BasicNode';
 import NavigateNode from './nodes/NavigateNode';
 import ClickNode from './nodes/ClickNode';
@@ -45,7 +45,7 @@ const nodeTypes = {
 
 interface NodeEditorProps {
   initialScript?: string;
-  onScriptSave?: (scriptName: string, script: string, nodes: Node[], edges: Edge[]) => void;
+  onScriptSave?: (scriptName: string, script: string, nodes: CustomNode[], edges: CustomEdge[]) => void;
   onScriptRun?: (script: string) => void;
 }
 
@@ -56,8 +56,8 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
 }) => {
   const { toast } = useToast();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode[]>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<CustomEdge[]>([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   const [scriptName, setScriptName] = useState('My Selenium Script');
   const [generatedCode, setGeneratedCode] = useState('');
@@ -68,7 +68,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   useEffect(() => {
     // Initialize with a start node
     if (nodes.length === 0) {
-      const startNode: Node = {
+      const startNode: CustomNode = {
         id: 'start-node',
         type: NodeTypes.START,
         position: { x: 250, y: 50 },
@@ -104,7 +104,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
         y: event.clientY
       });
       
-      const newNode: Node = {
+      const newNode: CustomNode = {
         id: `${nodeType}-${Date.now()}`,
         type: nodeType,
         position,
@@ -157,7 +157,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
 
   const handleClearFlow = () => {
     // Keep only the start node
-    const startNode: Node = {
+    const startNode: CustomNode = {
       id: 'start-node',
       type: NodeTypes.START,
       position: { x: 250, y: 50 },
@@ -174,7 +174,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   };
 
   const handleGenerateCode = () => {
-    const script = generateScript(nodes, edges);
+    const script = generateScript(nodes as CustomNode[], edges as CustomEdge[]);
     setGeneratedCode(script);
     setShowCodeDialog(true);
   };
@@ -191,10 +191,10 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
     
     setIsSaving(true);
     try {
-      const script = generateScript(nodes, edges);
+      const script = generateScript(nodes as CustomNode[], edges as CustomEdge[]);
       
       if (onScriptSave) {
-        await onScriptSave(scriptName, script, nodes, edges);
+        await onScriptSave(scriptName, script, nodes as CustomNode[], edges as CustomEdge[]);
       }
       
       toast({
@@ -216,7 +216,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
   const handleRunScript = async () => {
     setIsRunning(true);
     try {
-      const script = generateExecutableScript(nodes, edges, false);
+      const script = generateExecutableScript(nodes as CustomNode[], edges as CustomEdge[], false);
       
       if (onScriptRun) {
         await onScriptRun(script);
@@ -276,7 +276,7 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
           
           if (flow.nodes && flow.edges) {
             // Make sure data.onChange is properly set for all nodes
-            const nodesWithOnChange = flow.nodes.map((node: Node) => ({
+            const nodesWithOnChange = flow.nodes.map((node: CustomNode) => ({
               ...node,
               data: {
                 ...node.data,

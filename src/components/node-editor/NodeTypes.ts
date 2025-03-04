@@ -3,6 +3,7 @@
 import { Node as ReactFlowNode, Edge as ReactFlowEdge } from '@xyflow/react';
 
 export interface NodeData {
+  [key: string]: unknown; // Add index signature to satisfy Record<string, unknown>
   label?: string;
   type?: string;
   code?: string;
@@ -18,8 +19,9 @@ export interface NodeData {
   onChange?: (id: string, data: any) => void;
 }
 
+// Define CustomNode as a type alias for ReactFlowNode with NodeData
 export type CustomNode = ReactFlowNode<NodeData>;
-export type Edge = ReactFlowEdge;
+export type CustomEdge = ReactFlowEdge;
 
 export enum NodeTypes {
   START = 'start',

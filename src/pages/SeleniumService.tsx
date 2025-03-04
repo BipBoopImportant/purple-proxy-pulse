@@ -25,7 +25,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import NodeEditor from "@/components/node-editor/NodeEditor";
-import { Edge, Node } from '@xyflow/react';
+import { CustomNode, CustomEdge } from '@/components/node-editor/NodeTypes';
 
 const SeleniumService = () => {
   const { toast } = useToast();
@@ -168,7 +168,7 @@ const SeleniumService = () => {
     });
   };
   
-  const handleSaveScript = async (scriptName: string, scriptCode: string, nodes: Node[], edges: Edge[]) => {
+  const handleSaveScript = async (scriptName: string, scriptCode: string, nodes: CustomNode[], edges: CustomEdge[]) => {
     console.log("Saving script:", scriptName, nodes.length, "nodes");
     
     const saveLog: LogEntry = {
